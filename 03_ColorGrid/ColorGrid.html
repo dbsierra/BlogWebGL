@@ -2,8 +2,8 @@
 <style>
     canvas {
       /* force the canvas to fill out the entire area */
-      width: 100%; height: 100%;
-      background-color: #DDDDDD;
+      width: 100%;
+      height: 100px;
       /* force the z-pos of the canvas to be on-top */
      /* z-index: 0; */
     }
@@ -11,12 +11,10 @@
 </style>
 
 <body onload="main()">
-    <canvas id="mainCanvas" width="400" height="300">
+    <canvas id="mainCanvas" width="100" height="100">
     Please use a browser that supports "canvas"
     </canvas>
 </body>
-
-<script src="resources/webgl-utils.js"></script>
 
 <script id="2d-vertex-shader" type="notjs">
 
@@ -26,6 +24,8 @@
     attribute vec2 a_position;
 
     uniform float u_time;
+    uniform vec2 u_dimensions;
+    uniform vec3 colors[3];
 
     attribute vec2 a_texCoord;
     varying vec2 v_texCoord;
@@ -43,18 +43,37 @@
 </script>
  
 <script id="2d-fragment-shader" type="notjs">
- 
-  // fragment shaders don't have a default precision so we need
-  // to pick one. mediump is a good default
+
+  float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+  }
+
   precision mediump float;
   
   varying vec2 v_texCoord;
   uniform float u_time;
+  uniform vec2 u_dimensions;
+  uniform vec3 colors[3];
 
-  void main() {
+  void main() 
+  {
+    vec2 uv = v_texCoord;
+    vec2 dims = u_dimensions;
+
+    float x = floor(uv.x*dims[0])/dims[0];
+    float y = floor(uv.y*dims[1])/dims[1];
+
+
+    float index = rand( vec2(x,y) )*5.;
+
     
-    //gl_FragColor is a special variable a fragment shader is responsible for setting. Represents the color of the current fragment   
-    gl_FragColor = vec4(v_texCoord.x, v_texCoord.y, .5+.5*sin(u_time), 1); // return redish-purple
+    float r = sin(u_time+index)*.5+.5;
+    float g = sin(u_time+index+.38*6.28 )*.5+.5;
+    float b = sin(u_time+index+.66*6.28)*.5+.5;
+
+    vec3 c = vec3(r,g,b);
+
+    gl_FragColor = vec4(c, 1);
   }
  
 </script>
@@ -68,7 +87,9 @@
     var fragmentShader;
     var program;
 
-    var resolutionUniformLocation;
+    var timeUniformLocation;
+    var dimensionsUniformLocation;
+    var colorsUniformLocation;
     var positionAttributeLocation;
     var texcoordAttributeLocation;
     var texcoordBuffer;
@@ -133,7 +154,9 @@
         //get the  locations of our attributes
         positionAttributeLocation = gl.getAttribLocation(program, "a_position");
         texcoordAttributeLocation = gl.getAttribLocation(program, "a_texCoord");
-        resolutionUniformLocation = gl.getUniformLocation(program, "u_time");      
+        timeUniformLocation = gl.getUniformLocation(program, "u_time");   
+        dimensionsUniformLocation = gl.getUniformLocation(program, "u_dimensions");  
+        colorsUniformLocation = gl.getUniformLocation(program, "u_colors"); 
     }
 
 
@@ -182,7 +205,6 @@
           now = 0;
         var deltaTime = now - then;
 
-        console.log( now );
 
         //Resize canvas so number of pixels it has = size it's displayed at
         resize(gl.canvas);
@@ -224,9 +246,10 @@
         gl.vertexAttribPointer(texcoordAttributeLocation, size, type, normalize, stride, offset)
 
 
-        //set the resolution
-        gl.uniform1f(resolutionUniformLocation, now);
-
+        //set the uniforms
+        gl.uniform1f(timeUniformLocation, now);
+        gl.uniform2f(dimensionsUniformLocation, Math.floor(20. * (canvas.clientWidth/canvas.clientHeight)) ,20. );
+        gl.uniform3fv(colorsUniformLocation, [1.,0.,0., 0.,1.,0., 0.,0.,1.]);
 
         //We want to draw a single quad (2 triangles). This will call our vertex shader 6 times, then our fragment shader for each fragment that is visible.
         var primitiveType = gl.TRIANGLES;
